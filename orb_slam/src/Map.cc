@@ -18,11 +18,6 @@
 * along with ORB-SLAM. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <ros/ros.h>
-#include <ros/package.h>
-
-#include <boost/filesystem.hpp>
-
 #include "Map.h"
 
 namespace ORB_SLAM
@@ -30,57 +25,57 @@ namespace ORB_SLAM
 
 Map::Map()
 {
-    mbMapUpdated= false;
+    mbMapUpdateIdx= false;
     mnMaxKFid = 0;
 }
 
-void Map::AddKeyFrame(KeyFrame *pKF)
+void Map::AddKeyFrame(std::shared_ptr<KeyFrame>pKF)
 {
     boost::mutex::scoped_lock lock(mMutexMap);
     mspKeyFrames.insert(pKF);
     if(pKF->mnId>mnMaxKFid)
         mnMaxKFid=pKF->mnId;
-    mbMapUpdated=true;
+    mbMapUpdateIdx++;
 }
 
-void Map::AddMapPoint(MapPoint *pMP)
+void Map::AddMapPoint(std::shared_ptr<MapPoint> pMP)
 {
     boost::mutex::scoped_lock lock(mMutexMap);
     mspMapPoints.insert(pMP);
-    mbMapUpdated=true;
+    mbMapUpdateIdx++;
 }
 
-void Map::EraseMapPoint(MapPoint *pMP)
+void Map::EraseMapPoint(std::shared_ptr<MapPoint> pMP)
 {
     boost::mutex::scoped_lock lock(mMutexMap);
     mspMapPoints.erase(pMP);
-    mbMapUpdated=true;
+    mbMapUpdateIdx++;
 }
 
-void Map::EraseKeyFrame(KeyFrame *pKF)
+void Map::EraseKeyFrame(std::shared_ptr<KeyFrame>pKF)
 {
     boost::mutex::scoped_lock lock(mMutexMap);
     mspKeyFrames.erase(pKF);
-    mbMapUpdated=true;
+    mbMapUpdateIdx++;
 }
 
-void Map::SetReferenceMapPoints(const vector<MapPoint *> &vpMPs)
+void Map::SetReferenceMapPoints(const vector<std::shared_ptr<MapPoint>> &vpMPs)
 {
     boost::mutex::scoped_lock lock(mMutexMap);
     mvpReferenceMapPoints = vpMPs;
-    mbMapUpdated=true;
+    mbMapUpdateIdx++;
 }
 
-vector<KeyFrame*> Map::GetAllKeyFrames()
+vector<std::shared_ptr<KeyFrame>> Map::GetAllKeyFrames()
 {
     boost::mutex::scoped_lock lock(mMutexMap);
-    return vector<KeyFrame*>(mspKeyFrames.begin(),mspKeyFrames.end());
+    return vector<std::shared_ptr<KeyFrame>>(mspKeyFrames.begin(),mspKeyFrames.end());
 }
 
-vector<MapPoint*> Map::GetAllMapPoints()
+vector<std::shared_ptr<MapPoint>> Map::GetAllMapPoints()
 {
     boost::mutex::scoped_lock lock(mMutexMap);
-    return vector<MapPoint*>(mspMapPoints.begin(),mspMapPoints.end());
+    return vector<std::shared_ptr<MapPoint>>(mspMapPoints.begin(),mspMapPoints.end());
 }
 
 int Map::MapPointsInMap()
@@ -95,29 +90,27 @@ int Map::KeyFramesInMap()
     return mspKeyFrames.size();
 }
 
-vector<MapPoint*> Map::GetReferenceMapPoints()
+vector<std::shared_ptr<MapPoint>> Map::GetReferenceMapPoints()
 {
     boost::mutex::scoped_lock lock(mMutexMap);
-    return mvpReferenceMapPoints;
+    return vector<std::shared_ptr<MapPoint>>(mvpReferenceMapPoints.begin(),mvpReferenceMapPoints.end());
 }
 
-bool Map::isMapUpdated()
+unsigned int Map::GetMapUpdateIdx()
 {
-    boost::mutex::scoped_lock lock(mMutexMap);
-    return mbMapUpdated;
+    return mbMapUpdateIdx;
+}
+
+bool Map::isMapUpdated(unsigned int refIdx)
+{
+    return mbMapUpdateIdx != refIdx;
 }
 
 void Map::SetFlagAfterBA()
 {
     boost::mutex::scoped_lock lock(mMutexMap);
-    mbMapUpdated=true;
+    mbMapUpdateIdx++;
 
-}
-
-void Map::ResetUpdated()
-{
-    boost::mutex::scoped_lock lock(mMutexMap);
-    mbMapUpdated=false;
 }
 
 unsigned int Map::GetMaxKFid()
@@ -128,12 +121,6 @@ unsigned int Map::GetMaxKFid()
 
 void Map::clear()
 {
-    for(set<MapPoint*>::iterator sit=mspMapPoints.begin(), send=mspMapPoints.end(); sit!=send; sit++)
-        delete *sit;
-
-    for(set<KeyFrame*>::iterator sit=mspKeyFrames.begin(), send=mspKeyFrames.end(); sit!=send; sit++)
-        delete *sit;
-
     mspMapPoints.clear();
     mspKeyFrames.clear();
     mnMaxKFid = 0;

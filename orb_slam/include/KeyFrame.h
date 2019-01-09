@@ -29,7 +29,8 @@
 #include "Frame.h"
 #include "KeyFrameDatabase.h"
 
-#include <boost/thread.hpp>
+#include<boost/thread.hpp>
+#include<memory>
 
 
 namespace ORB_SLAM
@@ -41,7 +42,7 @@ class Frame;
 class KeyFrameDatabase;
 class DatabaseResult;
 
-class KeyFrame
+class KeyFrame: public std::enable_shared_from_this<KeyFrame>
 {
 public:
     KeyFrame(Frame &F, Map* pMap, KeyFrameDatabase* pKFDB);
@@ -65,37 +66,37 @@ public:
     DBoW2::BowVector GetBowVector();
 
     // Covisibility graph functions
-    void AddConnection(KeyFrame* pKF, const int &weight);
-    void EraseConnection(KeyFrame* pKF);
+    void AddConnection(std::shared_ptr<KeyFrame> pKF, const int &weight);
+    void EraseConnection(std::shared_ptr<KeyFrame> pKF);
     void UpdateConnections();
     void UpdateBestCovisibles();
-    std::set<KeyFrame *> GetConnectedKeyFrames();
-    std::vector<KeyFrame* > GetVectorCovisibleKeyFrames();
-    std::vector<KeyFrame*> GetBestCovisibilityKeyFrames(const int &N);
-    std::vector<KeyFrame*> GetCovisiblesByWeight(const int &w);
-    int GetWeight(KeyFrame* pKF);
+    std::set<std::shared_ptr<KeyFrame>> GetConnectedKeyFrames();
+    std::vector<std::shared_ptr<KeyFrame> > GetVectorCovisibleKeyFrames();
+    std::vector<std::shared_ptr<KeyFrame>> GetBestCovisibilityKeyFrames(const int &N);
+    std::vector<std::shared_ptr<KeyFrame>> GetCovisiblesByWeight(const int &w);
+    int GetWeight(std::shared_ptr<KeyFrame> pKF);
 
     // Spanning tree functions
-    void AddChild(KeyFrame* pKF);
-    void EraseChild(KeyFrame* pKF);
-    void ChangeParent(KeyFrame* pKF);
-    std::set<KeyFrame*> GetChilds();
-    KeyFrame* GetParent();
-    bool hasChild(KeyFrame* pKF);
+    void AddChild(std::shared_ptr<KeyFrame> pKF);
+    void EraseChild(std::shared_ptr<KeyFrame> pKF);
+    void ChangeParent(std::shared_ptr<KeyFrame> pKF);
+    std::set<std::shared_ptr<KeyFrame>> GetChilds();
+    std::shared_ptr<KeyFrame> GetParent();
+    bool hasChild(std::shared_ptr<KeyFrame> pKF);
 
     // Loop Edges
-    void AddLoopEdge(KeyFrame* pKF);
-    std::set<KeyFrame*> GetLoopEdges();
+    void AddLoopEdge(std::shared_ptr<KeyFrame> pKF);
+    std::set<std::shared_ptr<KeyFrame>> GetLoopEdges();
 
     // MapPoint observation functions
-    void AddMapPoint(MapPoint* pMP, const size_t &idx);
+    void AddMapPoint(std::shared_ptr<MapPoint> pMP, const size_t &idx);
     void EraseMapPointMatch(const size_t &idx);
-    void EraseMapPointMatch(MapPoint* pMP);
-    void ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP);
-    std::set<MapPoint*> GetMapPoints();
-    std::vector<MapPoint*> GetMapPointMatches();
+    void EraseMapPointMatch(std::shared_ptr<MapPoint> pMP);
+    void ReplaceMapPointMatch(const size_t &idx, std::shared_ptr<MapPoint> pMP);
+    std::set<std::shared_ptr<MapPoint>> GetMapPoints();
+    std::vector<std::shared_ptr<MapPoint>> GetMapPointMatches();
     int TrackedMapPoints();
-    MapPoint* GetMapPoint(const size_t &idx);
+    std::shared_ptr<MapPoint> GetMapPoint(const size_t &idx);
 
     // KeyPoint functions
     cv::KeyPoint GetKeyPointUn(const size_t &idx) const;
@@ -174,7 +175,7 @@ public:
         return a>b;
     }
 
-    static bool lId(KeyFrame* pKF1, KeyFrame* pKF2){
+    static bool lId(std::shared_ptr<KeyFrame> pKF1, std::shared_ptr<KeyFrame> pKF2){
         return pKF1->mnId<pKF2->mnId;
     }
 
@@ -193,11 +194,11 @@ protected:
     int mnMaxY;
     cv::Mat mK;
 
-    // KeyPoints, Descriptors, Points3D, MapPoints vectors (all associated by an index)
+    // KeyPoints, Descriptors, MapPoints vectors (all associated by an index)
     std::vector<cv::KeyPoint> mvKeys;
     std::vector<cv::KeyPoint> mvKeysUn;
     cv::Mat mDescriptors;
-    std::vector<MapPoint*> mvpMapPoints;
+    std::vector<std::shared_ptr<MapPoint>> mvpMapPoints;
 
     // BoW
     KeyFrameDatabase* mpKeyFrameDB;
@@ -208,15 +209,15 @@ protected:
     // Grid over the image to speed up feature matching
     std::vector< std::vector <std::vector<size_t> > > mGrid;
 
-    std::map<KeyFrame*,int> mConnectedKeyFrameWeights;
-    std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;
+    std::map<std::shared_ptr<KeyFrame>,int> mConnectedKeyFrameWeights;
+    std::vector<std::shared_ptr<KeyFrame>> mvpOrderedConnectedKeyFrames;
     std::vector<int> mvOrderedWeights;
 
     // Spanning Tree and Loop Edges
     bool mbFirstConnection;
-    KeyFrame* mpParent;
-    std::set<KeyFrame*> mspChildrens;
-    std::set<KeyFrame*> mspLoopEdges;
+    std::shared_ptr<KeyFrame> mpParent;
+    std::set<std::shared_ptr<KeyFrame>> mspChildrens;
+    std::set<std::shared_ptr<KeyFrame>> mspLoopEdges;
 
     // Erase flags
     bool mbNotErase;

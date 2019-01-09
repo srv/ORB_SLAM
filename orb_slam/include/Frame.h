@@ -21,6 +21,8 @@
 #ifndef FRAME_H
 #define FRAME_H
 
+#include <memory>
+
 #include "MapPoint.h"
 #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
 #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
@@ -45,12 +47,12 @@ class Frame
 public:
     Frame();
     Frame(const Frame &frame);
-    Frame(cv::Mat &im, const double &timeStamp, ORBextractor* extractor, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef);
+    Frame(cv::Mat &im, const double &timeStamp, std::shared_ptr<ORBextractor> extractor, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef);
 
     ORBVocabulary* mpORBvocabulary;
-    ORBextractor* mpORBextractor;
+    std::shared_ptr<ORBextractor> mpORBextractor;
 
-    // Mono image
+    // Frame image
     cv::Mat im;
 
     // Frame timestamp
@@ -79,14 +81,14 @@ public:
     cv::Mat mDescriptors;
 
     // MapPoints associated to keypoints, NULL pointer if not association
-    std::vector<MapPoint*> mvpMapPoints;
+    std::vector<std::shared_ptr<MapPoint>> mvpMapPoints;
 
     // Flag to identify outlier associations
     std::vector<bool> mvbOutlier;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints
-    float mfGridElementWidthInv;
-    float mfGridElementHeightInv;
+    static float mfGridElementWidthInv;
+    static float mfGridElementHeightInv;
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera Pose
@@ -96,14 +98,14 @@ public:
     static long unsigned int nNextId;
     long unsigned int mnId;
 
-    KeyFrame* mpReferenceKF;
+    std::shared_ptr<KeyFrame> mpReferenceKF;
 
     void ComputeBoW();
 
     void UpdatePoseMatrices();
 
     // Check if a MapPoint is in the frustum of the camera and also fills variables of the MapPoint to be used by the tracking
-    bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
+    bool isInFrustum(std::shared_ptr<MapPoint> pMP, float viewingCosLimit);
 
     // Compute the cell of a keypoint (return false if outside the grid)
     bool PosInGrid(cv::KeyPoint &kp, int &posX, int &posY);
@@ -128,7 +130,7 @@ public:
 
 private:
 
-    void UndistortKeyPoints(const std::vector<cv::KeyPoint> &kps, std::vector<cv::KeyPoint> &ukps);
+    void UndistortKeyPoints();
     void ComputeImageBounds();
 
     // Call UpdatePoseMatrices(), before using

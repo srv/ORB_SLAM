@@ -20,7 +20,6 @@
 
 #include "Frame.h"
 #include "Converter.h"
-#include "ORBmatcher.h"
 
 #include <ros/ros.h>
 
@@ -30,6 +29,7 @@ long unsigned int Frame::nNextId=0;
 bool Frame::mbInitialComputations=true;
 float Frame::cx, Frame::cy, Frame::fx, Frame::fy;
 int Frame::mnMinX, Frame::mnMinY, Frame::mnMaxX, Frame::mnMaxY;
+float Frame::mfGridElementWidthInv, Frame::mfGridElementHeightInv;
 
 Frame::Frame()
 {}
@@ -40,7 +40,7 @@ Frame::Frame(const Frame &frame)
      mK(frame.mK.clone()), mDistCoef(frame.mDistCoef.clone()), N(frame.N), mvKeys(frame.mvKeys), mvKeysUn(frame.mvKeysUn),
      mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mDescriptors(frame.mDescriptors.clone()),
      mvpMapPoints(frame.mvpMapPoints), mvbOutlier(frame.mvbOutlier),
-     mfGridElementWidthInv(frame.mfGridElementWidthInv), mfGridElementHeightInv(frame.mfGridElementHeightInv),mnId(frame.mnId),
+     mnId(frame.mnId),
      mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor),
      mvScaleFactors(frame.mvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2)
 {
@@ -53,10 +53,10 @@ Frame::Frame(const Frame &frame)
 }
 
 
-Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef)
+Frame::Frame(cv::Mat &im_, const double &timeStamp, std::shared_ptr<ORBextractor> extractor, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef)
     :mpORBvocabulary(voc),mpORBextractor(extractor), im(im_),mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone())
 {
-    // Exctract ORB
+    // Exctract ORB  
     (*mpORBextractor)(im,cv::Mat(),mvKeys,mDescriptors);
 
     N = mvKeys.size();
@@ -64,9 +64,10 @@ Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor, ORB
     if(mvKeys.empty())
         return;
 
-    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
+    mvpMapPoints = vector<std::shared_ptr<MapPoint>>(N,static_cast<std::shared_ptr<MapPoint>>(NULL));
 
-    UndistortKeyPoints(mvKeys, mvKeysUn);
+    UndistortKeyPoints();
+
 
     // This is done for the first created Frame
     if(mbInitialComputations)
@@ -84,7 +85,8 @@ Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor, ORB
         mbInitialComputations=false;
     }
 
-    mnId=nNextId++;
+
+    mnId=nNextId++;    
 
     //Scale Levels Info
     mnScaleLevels = mpORBextractor->GetLevels();
@@ -96,7 +98,7 @@ Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor, ORB
     mvLevelSigma2[0]=1.0f;
     for(int i=1; i<mnScaleLevels; i++)
     {
-        mvScaleFactors[i]=mvScaleFactors[i-1]*mfScaleFactor;
+        mvScaleFactors[i]=mvScaleFactors[i-1]*mfScaleFactor;        
         mvLevelSigma2[i]=mvScaleFactors[i]*mvScaleFactors[i];
     }
 
@@ -110,6 +112,7 @@ Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor, ORB
         for (unsigned int j=0; j<FRAME_GRID_ROWS;j++)
             mGrid[i][j].reserve(nReserve);
 
+
     for(size_t i=0;i<mvKeysUn.size();i++)
     {
         cv::KeyPoint &kp = mvKeysUn[i];
@@ -119,22 +122,24 @@ Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor, ORB
             mGrid[nGridPosX][nGridPosY].push_back(i);
     }
 
+
     mvbOutlier = vector<bool>(N,false);
+
 }
 
 void Frame::UpdatePoseMatrices()
-{
+{ 
     mRcw = mTcw.rowRange(0,3).colRange(0,3);
     mtcw = mTcw.rowRange(0,3).col(3);
     mOw = -mRcw.t()*mtcw;
 }
 
-bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
+bool Frame::isInFrustum(std::shared_ptr<MapPoint> pMP, float viewingCosLimit)
 {
     pMP->mbTrackInView = false;
 
     // 3D in absolute coordinates
-    cv::Mat P = pMP->GetWorldPos();
+    cv::Mat P = pMP->GetWorldPos(); 
 
     // 3D in camera coordinates
     const cv::Mat Pc = mRcw*P+mtcw;
@@ -281,20 +286,20 @@ void Frame::ComputeBoW()
     }
 }
 
-void Frame::UndistortKeyPoints(const std::vector<cv::KeyPoint> &kps, std::vector<cv::KeyPoint> &ukps)
+void Frame::UndistortKeyPoints()
 {
     if(mDistCoef.at<float>(0)==0.0)
     {
-        ukps=kps;
+        mvKeysUn=mvKeys;
         return;
     }
 
     // Fill matrix with points
-    cv::Mat mat(kps.size(),2,CV_32F);
-    for(unsigned int i=0; i<kps.size(); i++)
+    cv::Mat mat(mvKeys.size(),2,CV_32F);
+    for(unsigned int i=0; i<mvKeys.size(); i++)
     {
-        mat.at<float>(i,0)=kps[i].pt.x;
-        mat.at<float>(i,1)=kps[i].pt.y;
+        mat.at<float>(i,0)=mvKeys[i].pt.x;
+        mat.at<float>(i,1)=mvKeys[i].pt.y;
     }
 
     // Undistort points
@@ -303,13 +308,13 @@ void Frame::UndistortKeyPoints(const std::vector<cv::KeyPoint> &kps, std::vector
     mat=mat.reshape(1);
 
     // Fill undistorted keypoint vector
-    ukps.resize(kps.size());
-    for(unsigned int i=0; i<kps.size(); i++)
+    mvKeysUn.resize(mvKeys.size());
+    for(unsigned int i=0; i<mvKeys.size(); i++)
     {
-        cv::KeyPoint kp = kps[i];
+        cv::KeyPoint kp = mvKeys[i];
         kp.pt.x=mat.at<float>(i,0);
         kp.pt.y=mat.at<float>(i,1);
-        ukps[i]=kp;
+        mvKeysUn[i]=kp;
     }
 }
 
@@ -332,6 +337,7 @@ void Frame::ComputeImageBounds()
         mnMaxX = max(ceil(mat.at<float>(1,0)),ceil(mat.at<float>(3,0)));
         mnMinY = min(floor(mat.at<float>(0,1)),floor(mat.at<float>(1,1)));
         mnMaxY = max(ceil(mat.at<float>(2,1)),ceil(mat.at<float>(3,1)));
+
     }
     else
     {

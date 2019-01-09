@@ -41,7 +41,7 @@ class Tracking;
 class FramePublisher
 {
 public:
-    FramePublisher();
+    FramePublisher();    
 
     void Update(Tracking *pTracker);
 
@@ -62,7 +62,7 @@ protected:
 
     vector<bool> mvbOutliers;
 
-    vector<MapPoint*> mvpMatchedMapPoints;
+    vector<std::shared_ptr<MapPoint>> mvpMatchedMapPoints;
     int mnTracked;
     vector<cv::KeyPoint> mvIniKeys;
     vector<int> mvIniMatches;

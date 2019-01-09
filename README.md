@@ -56,18 +56,26 @@ We make use of some components of the DBoW2 library for place recognition and fe
 including only the components we need and also some modifications that are listed in `Thirdparty/DBoW2/LICENSE.txt`. 
 It only depends on OpenCV, but it should be included in the ROS distribution.
 
+##2.5 Octomap
+The integrated octomap export topics und services require following packages.
+
+	sudo apt-get install ros-indigo-octomap ros-indigo-octomap-msgs ros-indigo-octomap-ros
 
 #3. Installation
 
 1. In your ROS package path (check your environment variable `ROS_PACKAGE_PATH`) clone this repository:
 
+	Original version:
 		git clone https://github.com/raulmur/ORB_SLAM.git ORB_SLAM
+	My version:
+		git clone https://github.com/cehberlin/ORB_SLAM.git
 
 2. Run this line from your catkin workspace root, `indigo` here should be replaced with your preferred ROS distro.
 	`rosdep install --from-paths src --ignore-src --rosdistro indigo -y` 
 
 3. Build all by running catkin_make in your workspace root.
 
+	Only original version:
 	*Tip: Set your favorite compilation flags in line 12 and 13 of* `Thirdparty/DBoW2/CMakeLists.txt` (by default -03 -march=native)
 
 #4. Usage
@@ -79,7 +87,7 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 		rosrun orb_slam orb_slam PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE
 
   You have to provide the path to the ORB vocabulary and to the settings file. The paths must be absolute or relative   to the orb_slam directory.  
-  We already provide the vocabulary file we use in `orb_slam/Data/ORBvoc.yml`. Uncompress the file, as it will be   loaded much faster.
+  We already provide the vocabulary file we use in `orb_slam/Data/ORBvoc.txt`. Uncompress the file, as it will be   loaded much faster.
 
 2. The last processed frame is published to the topic `/orb_slam/Frame`. You can visualize it using `image_view`:
 
@@ -124,7 +132,7 @@ We provide the settings and the rosbag of an example sequence in our lab. In thi
 
 	Uncompress the file.
 
-2. Launch ORB_SLAM with the settings for the example sequence. You should have already uncompressed the vocabulary file (`/Data/ORBvoc.yml.tar.gz`)
+2. Launch ORB_SLAM with the settings for the example sequence. You should have already uncompressed the vocabulary file (`/Data/ORBvoc.txt.tar.gz`)
 
   *in ROS Fuerte*:
 

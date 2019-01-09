@@ -1,0 +1,9 @@
+<launch>
+
+    <node pkg="orb_slam" type="orb_slam" name="orb_slam"  args="Data/ORBvoc.txt Data/Settings.yaml" cwd="node" output="screen">
+        
+	    <remap from="/camera/image_raw" to="/usb_cam/image_raw" />
+        <remap from="/camera/camera_info" to="/usb_cam/camera_info" />
+
+    </node>
+</launch>

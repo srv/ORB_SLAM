@@ -1,0 +1,8 @@
+<launch>
+
+    <node pkg="orb_slam" type="orb_slam" name="orb_slam"  args="Data/ORBvoc.txt Data/Settings_bluefox_2mm.yaml" cwd="node" output="screen">
+        <param name="occupancy_projection_min_height" value="-0.3"/>
+    	<param name="octomap_resolution" value="0.1"/>
+	    <remap from="/camera/image_raw" to="/bluefox/image_color" />
+    </node>
+</launch>

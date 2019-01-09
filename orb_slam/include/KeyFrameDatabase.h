@@ -29,7 +29,7 @@
 #include "Frame.h"
 #include "ORBVocabulary.h"
 
-#include <boost/thread.hpp>
+#include<boost/thread.hpp>
 
 
 namespace ORB_SLAM
@@ -45,17 +45,17 @@ public:
 
     KeyFrameDatabase(const ORBVocabulary &voc);
 
-   void add(KeyFrame* pKF);
+   void add(std::shared_ptr<KeyFrame> pKF);
 
-   void erase(KeyFrame* pKF);
+   void erase(std::shared_ptr<KeyFrame> pKF);
 
    void clear();
 
    // Loop Detection
-   std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame* pKF, float minScore);
+   std::vector<std::shared_ptr<KeyFrame>> DetectLoopCandidates(std::shared_ptr<KeyFrame> pKF, float minScore);
 
    // Relocalisation
-   std::vector<KeyFrame*> DetectRelocalisationCandidates(Frame* F);
+   std::vector<std::shared_ptr<KeyFrame>> DetectRelocalisationCandidates(Frame* F);
 
 protected:
 
@@ -63,7 +63,7 @@ protected:
   const ORBVocabulary* mpVoc;
 
   // Inverted file
-  std::vector<list<KeyFrame*> > mvInvertedFile;
+  std::vector<list<std::shared_ptr<KeyFrame>> > mvInvertedFile;
 
   // Mutex
   boost::mutex mMutex;

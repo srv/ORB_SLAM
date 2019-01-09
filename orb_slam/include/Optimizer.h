@@ -21,6 +21,8 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
 
+#include <memory>
+
 #include "Map.h"
 #include "MapPoint.h"
 #include "KeyFrame.h"
@@ -37,18 +39,18 @@ class LoopClosing;
 class Optimizer
 {
 public:
-    void static BundleAdjustment(const std::vector<KeyFrame*> &vpKF, const std::vector<MapPoint*> &vpMP, int nIterations = 5, bool *pbStopFlag=NULL);
+    void static BundleAdjustment(const std::vector<std::shared_ptr<KeyFrame>> &vpKF, const std::vector<std::shared_ptr<MapPoint>> &vpMP, int nIterations = 5, bool *pbStopFlag=NULL);
     void static GlobalBundleAdjustemnt(Map* pMap, int nIterations=5, bool *pbStopFlag=NULL);
-    void static LocalBundleAdjustment(KeyFrame* pKF, bool *pbStopFlag=NULL);
+    void static LocalBundleAdjustment(std::shared_ptr<KeyFrame> pKF, bool *pbStopFlag=NULL);
     int static PoseOptimization(Frame* pFrame);
 
-    void static OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* pCurKF, g2o::Sim3 &Scurw,
+    void static OptimizeEssentialGraph(Map* pMap, std::shared_ptr<KeyFrame> pLoopKF, std::shared_ptr<KeyFrame> pCurKF, g2o::Sim3 &Scurw,
                                        LoopClosing::KeyFrameAndPose &NonCorrectedSim3,
                                        LoopClosing::KeyFrameAndPose &CorrectedSim3,
-                                       std::map<KeyFrame*, set<KeyFrame*> > &LoopConnections);
+                                       std::map<std::shared_ptr<KeyFrame>, set<std::shared_ptr<KeyFrame>> > &LoopConnections);
 
 
-    static int OptimizeSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches1, g2o::Sim3 &g2oS12, float th2 = 10);
+    static int OptimizeSim3(std::shared_ptr<KeyFrame> pKF1, std::shared_ptr<KeyFrame> pKF2, std::vector<std::shared_ptr<MapPoint>> &vpMatches1, g2o::Sim3 &g2oS12, float th2 = 10);
 };
 
 } //namespace ORB_SLAM

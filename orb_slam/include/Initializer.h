@@ -21,7 +21,7 @@
 #ifndef INITIALIZER_H
 #define INITIALIZER_H
 
-#include <opencv2/opencv.hpp>
+#include<opencv2/opencv.hpp>
 #include "Frame.h"
 
 
@@ -92,7 +92,7 @@ private:
     int mMaxIterations;
 
     // Ransac sets
-    vector<vector<size_t> > mvSets;
+    vector<vector<size_t> > mvSets;   
 
 };
 

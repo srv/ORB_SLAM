@@ -26,7 +26,7 @@ namespace ORB_SLAM
 {
 
 
-MapPublisher::MapPublisher(Map* pMap):mpMap(pMap), mbCameraUpdated(false), mLastPose(-1.0), mLastRange(-1.0), mLastStamp(-1.0), mRangeScale(-1.0)
+MapPublisher::MapPublisher(Map* pMap):mpMap(pMap), mbCameraUpdated(false), mbLastMapUpdateIdx(0)
 {
     const char* MAP_FRAME_ID = "/ORB_SLAM/World";
     const char* POINTS_NAMESPACE = "MapPoints";
@@ -106,44 +106,49 @@ MapPublisher::MapPublisher(Map* pMap):mpMap(pMap), mbCameraUpdated(false), mLast
     mReferencePoints.color.r =1.0f;
     mReferencePoints.color.a = 1.0;
 
-    //Configure Publisher
-    mMapPublisher = nh.advertise<visualization_msgs::Marker>("ORB_SLAM/Map", 10);
-    mPosePublisher = nh.advertise<geometry_msgs::PoseStamped>("ORB_SLAM/Pose", 10);
+    mbLastMapUpdateIdx = mpMap->GetMapUpdateIdx() - 1; //decrease in order to force an update
 
-    mMapPublisher.publish(mPoints);
-    mMapPublisher.publish(mReferencePoints);
-    mMapPublisher.publish(mCovisibilityGraph);
-    mMapPublisher.publish(mKeyFrames);
-    mMapPublisher.publish(mCurrentCamera);
+    //Configure Publisher
+    publisher = nh.advertise<visualization_msgs::Marker>("ORB_SLAM/Map", 10);
+
+    publisher.publish(mPoints);
+    publisher.publish(mReferencePoints);
+    publisher.publish(mCovisibilityGraph);
+    publisher.publish(mKeyFrames);
+    publisher.publish(mCurrentCamera);
 }
 
 void MapPublisher::Refresh()
 {
+  //save computation if their is no subscriber
+  if(publisher.getNumSubscribers() > 0 )
+  {
     if(isCamUpdated())
     {
        cv::Mat Tcw = GetCurrentCameraPose();
        PublishCurrentCamera(Tcw);
        ResetCamFlag();
     }
-    if(mpMap->isMapUpdated())
+    if(mpMap->isMapUpdated(mbLastMapUpdateIdx))
     {
-        vector<KeyFrame*> vKeyFrames = mpMap->GetAllKeyFrames();
-        vector<MapPoint*> vMapPoints = mpMap->GetAllMapPoints();
-        vector<MapPoint*> vRefMapPoints = mpMap->GetReferenceMapPoints();
+        vector<std::shared_ptr<KeyFrame>> vKeyFrames = mpMap->GetAllKeyFrames();
+        vector<std::shared_ptr<MapPoint>> vMapPoints = mpMap->GetAllMapPoints();
+        vector<std::shared_ptr<MapPoint>> vRefMapPoints = mpMap->GetReferenceMapPoints();
 
         PublishMapPoints(vMapPoints, vRefMapPoints);
         PublishKeyFrames(vKeyFrames);
 
-        mpMap->ResetUpdated();
+        mbLastMapUpdateIdx = mpMap->GetMapUpdateIdx();
     }
+  }
 }
 
-void MapPublisher::PublishMapPoints(const vector<MapPoint*> &vpMPs, const vector<MapPoint*> &vpRefMPs)
+void MapPublisher::PublishMapPoints(const vector<std::shared_ptr<MapPoint>> &vpMPs, const vector<std::shared_ptr<MapPoint>> &vpRefMPs)
 {
     mPoints.points.clear();
     mReferencePoints.points.clear();
 
-    set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
+    set<std::shared_ptr<MapPoint>> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
 
     for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
     {
@@ -158,7 +163,7 @@ void MapPublisher::PublishMapPoints(const vector<MapPoint*> &vpMPs, const vector
         mPoints.points.push_back(p);
     }
 
-    for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
+    for(set<std::shared_ptr<MapPoint>>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
     {
         if((*sit)->isBad())
             continue;
@@ -173,11 +178,11 @@ void MapPublisher::PublishMapPoints(const vector<MapPoint*> &vpMPs, const vector
 
     mPoints.header.stamp = ros::Time::now();
     mReferencePoints.header.stamp = ros::Time::now();
-    mMapPublisher.publish(mPoints);
-    mMapPublisher.publish(mReferencePoints);
+    publisher.publish(mPoints);
+    publisher.publish(mReferencePoints);
 }
 
-void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
+void MapPublisher::PublishKeyFrames(const vector<std::shared_ptr<KeyFrame>> &vpKFs)
 {
     mKeyFrames.points.clear();
     mCovisibilityGraph.points.clear();
@@ -237,10 +242,10 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
         mKeyFrames.points.push_back(msgs_p1);
 
         // Covisibility Graph
-        vector<KeyFrame*> vCovKFs = vpKFs[i]->GetCovisiblesByWeight(100);
+        vector<std::shared_ptr<KeyFrame>> vCovKFs = vpKFs[i]->GetCovisiblesByWeight(100);
         if(!vCovKFs.empty())
         {
-            for(vector<KeyFrame*>::iterator vit=vCovKFs.begin(), vend=vCovKFs.end(); vit!=vend; vit++)
+            for(vector<std::shared_ptr<KeyFrame>>::iterator vit=vCovKFs.begin(), vend=vCovKFs.end(); vit!=vend; vit++)
             {
                 if((*vit)->mnId<vpKFs[i]->mnId)
                     continue;
@@ -255,7 +260,7 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
         }
 
         // MST
-        KeyFrame* pParent = vpKFs[i]->GetParent();
+        std::shared_ptr<KeyFrame> pParent = vpKFs[i]->GetParent();
         if(pParent)
         {
             cv::Mat Owp = pParent->GetCameraCenter();
@@ -266,8 +271,8 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
             mMST.points.push_back(msgs_o);
             mMST.points.push_back(msgs_op);
         }
-        set<KeyFrame*> sLoopKFs = vpKFs[i]->GetLoopEdges();
-        for(set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
+        set<std::shared_ptr<KeyFrame>> sLoopKFs = vpKFs[i]->GetLoopEdges();
+        for(set<std::shared_ptr<KeyFrame>>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
         {
             if((*sit)->mnId<vpKFs[i]->mnId)
                 continue;
@@ -285,9 +290,9 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
     mCovisibilityGraph.header.stamp = ros::Time::now();
     mMST.header.stamp = ros::Time::now();
 
-    mMapPublisher.publish(mKeyFrames);
-    mMapPublisher.publish(mCovisibilityGraph);
-    mMapPublisher.publish(mMST);
+    publisher.publish(mKeyFrames);
+    publisher.publish(mCovisibilityGraph);
+    publisher.publish(mMST);
 }
 
 void MapPublisher::PublishCurrentCamera(const cv::Mat &Tcw)
@@ -310,7 +315,7 @@ void MapPublisher::PublishCurrentCamera(const cv::Mat &Tcw)
     cv::Mat p3w = Twc*p3;
     cv::Mat p4w = Twc*p4;
 
-    geometry_msgs::Point msgs_o, msgs_p1, msgs_p2, msgs_p3, msgs_p4;
+    geometry_msgs::Point msgs_o,msgs_p1, msgs_p2, msgs_p3, msgs_p4;
     msgs_o.x=ow.at<float>(0);
     msgs_o.y=ow.at<float>(1);
     msgs_o.z=ow.at<float>(2);
@@ -345,97 +350,15 @@ void MapPublisher::PublishCurrentCamera(const cv::Mat &Tcw)
     mCurrentCamera.points.push_back(msgs_p1);
 
     mCurrentCamera.header.stamp = ros::Time::now();
-    mMapPublisher.publish(mCurrentCamera);
 
-    // Pose publisher
-    if (mRangeScale > 0 && mPosePublisher.getNumSubscribers() > 0)
-    {
-        geometry_msgs::PoseStamped pose;
-        cv::Mat Rwc = (Twc.rowRange(0,3).colRange(0,3)).t();
-        vector<float> q = ORB_SLAM::Converter::toQuaternion(Rwc);
-        geometry_msgs::Quaternion msg_q;
-        msg_q.x = q[0];
-        msg_q.y = q[1];
-        msg_q.z = q[2];
-        msg_q.w = q[3];
-
-        msgs_o.x = msgs_o.x * mRangeScale;
-        msgs_o.y = msgs_o.y * mRangeScale;
-        msgs_o.z = msgs_o.z * mRangeScale;
-
-        pose.header.stamp = ros::Time::now();
-        pose.header.frame_id = "/ORB_SLAM/World";
-        pose.pose.position = msgs_o;
-        pose.pose.orientation = msg_q;
-        mPosePublisher.publish(pose);
-    }
+    publisher.publish(mCurrentCamera);
 }
 
-void MapPublisher::SetCurrentCameraPose(const cv::Mat &Tcw, const double &poseStamp, const float &range, const double &rangeStamp)
+void MapPublisher::SetCurrentCameraPose(const cv::Mat &Tcw)
 {
     boost::mutex::scoped_lock lock(mMutexCamera);
     mCameraPose = Tcw.clone();
     mbCameraUpdated = true;
-
-    // Current camera pose at range axis
-    cv::Mat o = (cv::Mat_<float>(4,1) << 0, 0, 0, 1);
-    cv::Mat Twc = Tcw.inv();
-    cv::Mat ow = Twc*o;
-    float pose = ow.at<float>(2);
-
-    // Compute scale only once
-    if (mRangeScale > 0)
-        return;
-
-    // Scale computation
-    const double eps = 1e-2;
-    int idx = -1;
-    for (uint i=0; i<mZposes.size(); i++)
-    {
-        if ( fabs(mZposes[i].second - rangeStamp) <  eps)
-        {
-            idx = (int)i;
-            break;
-        }
-    }
-
-    if (idx >= 0)
-    {
-        if (mLastStamp < 0 )
-        {
-            // First iteration
-            mLastPose = mZposes[idx].first;
-            mLastStamp = mZposes[idx].second;
-            mLastRange = range;
-        }
-        else
-        {
-            // Minimum time between scale updates
-            if ( (mZposes[idx].second - mLastStamp) > 2.0)
-            {
-                float poseDiff = fabs(mZposes[idx].first - mLastPose);
-                float rangeDiff = fabs(range - mLastRange);
-
-                // Check enough range difference
-                if (rangeDiff > 0.2)
-                {
-                    // Set scale
-                    mRangeScale = rangeDiff / poseDiff;
-                    ROS_INFO_STREAM("Scale set to: " << mRangeScale);
-
-                    // Save
-                    mLastPose = mZposes[idx].first;
-                    mLastStamp = mZposes[idx].second;
-                    mLastRange = range;
-                }
-            }
-        }
-
-        mZposes.clear();
-    }
-
-    // Save
-    mZposes.push_back(make_pair(pose, poseStamp));
 }
 
 cv::Mat MapPublisher::GetCurrentCameraPose()
@@ -454,11 +377,6 @@ void MapPublisher::ResetCamFlag()
 {
     boost::mutex::scoped_lock lock(mMutexCamera);
     mbCameraUpdated = false;
-}
-
-float MapPublisher::GetRangeScale()
-{
-    return mRangeScale;
 }
 
 } //namespace ORB_SLAM

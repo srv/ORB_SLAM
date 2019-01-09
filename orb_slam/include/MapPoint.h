@@ -21,11 +21,13 @@
 #ifndef MAPPOINT_H
 #define MAPPOINT_H
 
-#include <opencv2/core/core.hpp>
-#include "KeyFrame.h"
-#include "Map.h"
+#include <memory>
 
-#include <boost/thread.hpp>
+#include<opencv2/core/core.hpp>
+#include"KeyFrame.h"
+#include"Map.h"
+
+#include<boost/thread.hpp>
 
 
 namespace ORB_SLAM
@@ -36,30 +38,30 @@ class KeyFrame;
 class Map;
 
 
-class MapPoint
+class MapPoint : public std::enable_shared_from_this<MapPoint>
 {
 public:
-    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
+    MapPoint(const cv::Mat &Pos, std::shared_ptr<KeyFrame> pRefKF, Map* pMap);
 
     void SetWorldPos(const cv::Mat &Pos);
     cv::Mat GetWorldPos();
 
     cv::Mat GetNormal();
-    KeyFrame* GetReferenceKeyFrame();
+    std::shared_ptr<KeyFrame> GetReferenceKeyFrame();
 
-    std::map<KeyFrame*,size_t> GetObservations();
+    std::map<std::shared_ptr<KeyFrame>,size_t> GetObservations();
     int Observations();
 
-    void AddObservation(KeyFrame* pKF,size_t idx);
-    void EraseObservation(KeyFrame* pKF);
+    void AddObservation(std::shared_ptr<KeyFrame> pKF,size_t idx);
+    void EraseObservation(std::shared_ptr<KeyFrame> pKF);
 
-    int GetIndexInKeyFrame(KeyFrame* pKF);
-    bool IsInKeyFrame(KeyFrame* pKF);
+    int GetIndexInKeyFrame(std::shared_ptr<KeyFrame> pKF);
+    bool IsInKeyFrame(std::shared_ptr<KeyFrame> pKF);
 
     void SetBadFlag();
     bool isBad();
 
-    void Replace(MapPoint* pMP);
+    void Replace(std::shared_ptr<MapPoint> pMP);
 
     void IncreaseVisible();
     void IncreaseFound();
@@ -97,13 +99,13 @@ public:
     long unsigned int mnCorrectedByKF;
     long unsigned int mnCorrectedReference;
 
-protected:
+protected:    
 
      // Position in absolute coordinates
      cv::Mat mWorldPos;
 
      // Keyframes observing the point and associated index in keyframe
-     std::map<KeyFrame*,size_t> mObservations;
+     std::map<std::shared_ptr<KeyFrame>,size_t> mObservations;
 
      // Mean viewing direction
      cv::Mat mNormalVector;
@@ -112,7 +114,7 @@ protected:
      cv::Mat mDescriptor;
 
      // Reference KeyFrame
-     KeyFrame* mpRefKF;
+     std::shared_ptr<KeyFrame> mpRefKF;
 
      // Tracking counters
      int mnVisible;

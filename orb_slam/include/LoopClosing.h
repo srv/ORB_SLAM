@@ -44,9 +44,9 @@ class LoopClosing
 {
 public:
 
-    typedef pair<set<KeyFrame*>,int> ConsistentGroup;
-    typedef map<KeyFrame*,g2o::Sim3,std::less<KeyFrame*>,
-        Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3> > > KeyFrameAndPose;
+    typedef pair<set<std::shared_ptr<KeyFrame>>,int> ConsistentGroup;
+    typedef map<std::shared_ptr<KeyFrame>,g2o::Sim3,std::less<std::shared_ptr<KeyFrame>>,
+        Eigen::aligned_allocator<std::pair<const std::shared_ptr<KeyFrame>, g2o::Sim3> > > KeyFrameAndPose;
 
 public:
 
@@ -58,7 +58,7 @@ public:
 
     void Run();
 
-    void InsertKeyFrame(KeyFrame *pKF);
+    void InsertKeyFrame(std::shared_ptr<KeyFrame>pKF);
 
     void RequestReset();
 
@@ -86,7 +86,7 @@ protected:
 
     LocalMapping *mpLocalMapper;
 
-    std::list<KeyFrame*> mlpLoopKeyFrameQueue;
+    std::list<std::shared_ptr<KeyFrame>> mlpLoopKeyFrameQueue;
 
     boost::mutex mMutexLoopQueue;
 
@@ -96,13 +96,13 @@ protected:
     float mnCovisibilityConsistencyTh;
 
     // Loop detector variables
-    KeyFrame* mpCurrentKF;
-    KeyFrame* mpMatchedKF;
+    std::shared_ptr<KeyFrame> mpCurrentKF;
+    std::shared_ptr<KeyFrame> mpMatchedKF;
     std::vector<ConsistentGroup> mvConsistentGroups;
-    std::vector<KeyFrame*> mvpEnoughConsistentCandidates;
-    std::vector<KeyFrame*> mvpCurrentConnectedKFs;
-    std::vector<MapPoint*> mvpCurrentMatchedPoints;
-    std::vector<MapPoint*> mvpLoopMapPoints;
+    std::vector<std::shared_ptr<KeyFrame>> mvpEnoughConsistentCandidates;
+    std::vector<std::shared_ptr<KeyFrame>> mvpCurrentConnectedKFs;
+    std::vector<std::shared_ptr<MapPoint>> mvpCurrentMatchedPoints;
+    std::vector<std::shared_ptr<MapPoint>> mvpLoopMapPoints;
     cv::Mat mScw;
     g2o::Sim3 mg2oScw;
     double mScale_cw;

@@ -24,8 +24,8 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-#include <boost/thread.hpp>
-#include <ros/ros.h>
+#include<boost/thread.hpp>
+#include<ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
 
 namespace ORB_SLAM
@@ -49,11 +49,15 @@ void FramePublisher::SetMap(Map *pMap)
 
 void FramePublisher::Refresh()
 {
+  //save computation if their is no subscriber
+  if(mImagePub.getNumSubscribers() > 0)
+  {
     if(mbUpdated)
     {
         PublishFrame();
         mbUpdated = false;
     }
+  }
 }
 
 cv::Mat FramePublisher::DrawFrame()
@@ -62,7 +66,7 @@ cv::Mat FramePublisher::DrawFrame()
     vector<cv::KeyPoint> vIniKeys; // Initialization: KeyPoints in reference frame
     vector<int> vMatches; // Initialization: correspondeces with reference keypoints
     vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
-    vector<MapPoint*> vMatchedMapPoints; // Tracked MapPoints in current frame
+    vector<std::shared_ptr<MapPoint>> vMatchedMapPoints; // Tracked MapPoints in current frame
     int state; // Tracking state
 
     //Copy variable to be used within scoped mutex
@@ -75,7 +79,7 @@ cv::Mat FramePublisher::DrawFrame()
         mIm.copyTo(im);
 
         if(mState==Tracking::NOT_INITIALIZED)
-        {
+        {            
             vIniKeys = mvIniKeys;
         }
         else if(mState==Tracking::INITIALIZING)
@@ -108,7 +112,7 @@ cv::Mat FramePublisher::DrawFrame()
                 cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt,
                         cv::Scalar(0,255,0));
             }
-        }
+        }        
     }
     else if(state==Tracking::WORKING) //TRACKING
     {
